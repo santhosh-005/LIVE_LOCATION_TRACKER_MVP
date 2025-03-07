@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Tracker</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        #map {
+            width: 90%;
+            height: 400px;
+            margin-bottom: 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        #trackButton {
+            padding: 12px 24px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #trackButton:hover {
+            background-color: #45a049;
+        }
+        #status {
+            margin-top: 15px;
+            padding: 10px;
+            font-style: italic;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>Location Tracker</h1>
+    <div id="map"></div>
+    <button id="trackButton">Start Track</button>
+    <div id="status">Click the button to start tracking your location</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([0, 0], 2);
+        
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Variables for tracking
+        let marker;
+        let tracking = false;
+        let watchId;
+        const statusDisplay = document.getElementById('status');
+        const trackButton = document.getElementById('trackButton');
+        
+        // Function to handle successful location acquisition
+        function handleLocationSuccess(position) {
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+            
+            statusDisplay.textContent = `Location found: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} (Accuracy: ${accuracy.toFixed(2)}m)`;
+            
+            // Create or update marker
+            if (!marker) {
+                marker = L.marker([latitude, longitude]).addTo(map);
+                
+                // Create a circle to show accuracy
+                L.circle([latitude, longitude], {
+                    radius: accuracy,
+                    color: 'blue',
+                    fillColor: '#3388ff',
+                    fillOpacity: 0.2
+                }).addTo(map);
+                
+                // Center map on user's location with appropriate zoom
+                map.setView([latitude, longitude], 16);
+            } else {
+                marker.setLatLng([latitude, longitude]);
+            }
+        }
+        
+        // Function to handle errors
+        function handleLocationError(error) {
+            let errorMessage = "Error getting location: ";
+            
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMessage += "User denied the request for geolocation.";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMessage += "Location information is unavailable.";
+                    break;
+                case error.TIMEOUT:
+                    errorMessage += "The request to get user location timed out.";
+                    break;
+                case error.UNKNOWN_ERROR:
+                    errorMessage += "An unknown error occurred.";
+                    break;
+            }
+            
+            statusDisplay.textContent = errorMessage;
+            tracking = false;
+            trackButton.textContent = "Start Track";
+        }
+        
+        // Add click event for the track button
+        trackButton.addEventListener('click', function() {
+            if (!tracking) {
+                // Check if geolocation is supported
+                if (!navigator.geolocation) {
+                    statusDisplay.textContent = "Geolocation is not supported by your browser";
+                    return;
+                }
+                
+                // Start tracking
+                tracking = true;
+                trackButton.textContent = "Stop Track";
+                statusDisplay.textContent = "Locating...";
+                
+                // Get initial position and then watch for changes
+                navigator.geolocation.getCurrentPosition(handleLocationSuccess, handleLocationError, {
+                    enableHighAccuracy: true
+                });
+                
+                watchId = navigator.geolocation.watchPosition(handleLocationSuccess, handleLocationError, {
+                    enableHighAccuracy: true
+                });
+            } else {
+                // Stop tracking
+                tracking = false;
+                trackButton.textContent = "Start Track";
+                statusDisplay.textContent = "Tracking stopped";
+                
+                if (watchId) {
+                    navigator.geolocation.clearWatch(watchId);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
